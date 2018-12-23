@@ -12,7 +12,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.utils import shuffle
-from sklearn.cross_validation import train_test_split
+#from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 
 from keras import backend as K
 K.set_image_dim_ordering('th')
