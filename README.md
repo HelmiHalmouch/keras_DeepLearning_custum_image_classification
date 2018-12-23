@@ -7,6 +7,7 @@ python3.5<br/>
 keras<br/>
 matplotlib<br/>
 sklearn<br/>
+opencv<br/>
 
 # Remark about images dataset to run the code 
 
@@ -19,6 +20,9 @@ Structure of the datasets : <br/>
 ----------class4<br/>
 
 If you dot have a set of image data  you con send me an email in the following adress : helmirealmadrid@gmail.com <br/>
+
+# Architecture of CNN and the parmeters 
+![summary_of_model](https://user-images.githubusercontent.com/40611217/50387867-0a457380-0707-11e9-9ec3-ba00c0ef2585.JPG)
 
 # run the code
 python main.py 
