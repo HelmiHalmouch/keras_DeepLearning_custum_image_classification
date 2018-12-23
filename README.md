@@ -12,7 +12,7 @@ sklearn<br/>
 
 Please create a folder  named 'data'. Inside this folder you creat 4 subfoler for 4 image classes (202 image in each folder)<br/>
 Structure of the datasets : <br/>
-data<br/>
+---data<br/>
 ----------class1<br/>
 ----------class2<br/>
 ----------class3<br/>
