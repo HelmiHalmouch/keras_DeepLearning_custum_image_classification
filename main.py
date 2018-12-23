@@ -184,3 +184,40 @@ model.compile(loss='categorical_crossentropy', optimizer='rmsprop',metrics=["acc
 # Training
 num_epoch=50
 cnn = model.fit(X_train, y_train, batch_size=16, epochs=num_epoch, verbose=1, validation_data=(X_test, y_test))
+
+#preduction scores 
+scores = model.evaluate(X_test, y_test, verbose=0)
+print("Accuracy: %.2f%%" % (scores[1]*100))
+
+#---------------------save the model-----------------------#
+# serialize model to JSON
+model_json = model.to_json()
+with open("model.json", "w") as json_file:
+    json_file.write(model_json)
+# serialize weights to HDF5
+model.save_weights("model.h5")
+print("Saved model to disk") 
+
+#----------------Plot the training  validation and loss accuracy ---------------#
+plt.figure(0)
+plt.plot(cnn.history['acc'],'r')
+plt.plot(cnn.history['val_acc'],'g')
+plt.xticks(np.arange(0, 11, 2.0))
+plt.rcParams['figure.figsize'] = (8, 6)
+plt.xlabel("Num of Epochs")
+plt.ylabel("Accuracy")
+plt.title("Training Accuracy vs Validation Accuracy")
+plt.legend(['train','validation'])
+plt.savefig('train_validation_accray.png')
+
+plt.figure(1)
+plt.plot(cnn.history['loss'],'r')
+plt.plot(cnn.history['val_loss'],'g')
+plt.xticks(np.arange(0, 11, 2.0))
+plt.rcParams['figure.figsize'] = (8, 6)
+plt.xlabel("Num of Epochs")
+plt.ylabel("Loss")
+plt.title("Training Loss vs Validation Loss")
+plt.legend(['train','validation'])
+
+plt.savefig('train_validation_loss.png')
