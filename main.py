@@ -118,3 +118,69 @@ if USE_SKLEARN_PREPROCESSING:
 if USE_SKLEARN_PREPROCESSING:
 	img_data=img_data_scaled
 
+#--------------------Split the dataset into train adn test and define the labels ------------------#
+# Define the number of classes
+num_classes = 4
+
+num_of_samples = img_data.shape[0]
+labels = np.ones((num_of_samples,),dtype='int64')
+
+labels[0:202]=0
+labels[202:404]=1
+labels[404:606]=2
+labels[606:]=3
+
+names = ['cats','dogs','horses','humans']
+	  
+# convert class labels to on-hot encoding
+Y = np_utils.to_categorical(labels, num_classes)
+
+#Shuffle the dataset
+x,y = shuffle(img_data,Y, random_state=2)
+
+# Split the dataset : test_size = 0.2 ==> 20% of the image dataset are for the test and 80% for the train 
+X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=2)
+
+#--------------Architechture of the sequential model---------------------#
+# Defining the model
+input_shape=img_data[0].shape
+					
+model = Sequential()
+
+model.add(Conv2D(32, (3,3),border_mode='same',input_shape=input_shape))
+model.add(Activation('relu'))
+model.add(Conv2D(32, (3, 3)))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Dropout(0.5))
+
+model.add(Conv2D(64, (3, 3)))
+model.add(Activation('relu'))
+#model.add(Conv2D(64, (3, 3)))
+#model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Dropout(0.5))
+
+model.add(Flatten())
+model.add(Dense(64))
+model.add(Activation('relu'))
+model.add(Dropout(0.5))
+model.add(Dense(num_classes))
+model.add(Activation('softmax'))
+
+# Viewing model_configuration
+model.summary()
+model.get_config()
+model.layers[0].get_config()
+model.layers[0].input_shape			
+model.layers[0].output_shape			
+model.layers[0].get_weights()
+np.shape(model.layers[0].get_weights()[0])
+model.layers[0].trainable
+
+#------------------Compile train then predict the model -----------------#
+
+model.compile(loss='categorical_crossentropy', optimizer='rmsprop',metrics=["accuracy"])
+# Training
+num_epoch=50
+cnn = model.fit(X_train, y_train, batch_size=16, epochs=num_epoch, verbose=1, validation_data=(X_test, y_test))
