@@ -18,5 +18,5 @@ Structure of the datasets : <br/>
 If you dont have a set of image data  you con send me an email in the following adress : helmirealmadrid@gmail.com <br/>
 ## Architecture of CNN and the parmeters 
 ![summary_of_model](https://user-images.githubusercontent.com/40611217/50387867-0a457380-0707-11e9-9ec3-ba00c0ef2585.JPG)
-## run the code
+## Run the code
 python main.py 
