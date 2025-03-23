@@ -1,22 +1,28 @@
-# Keras_DeepLearning_for_Custum_Image_Classification
-Developpement of Deep Learning model using CNN and keras librairie for custum image classification <br/>
-Using Conventional Neural Network (CNN) sequential architecture implimented by keras <br/> 
-## Requirement 
-python3.5<br/>
-keras<br/>
-matplotlib<br/>
-sklearn<br/>
-opencv<br/>
-## Remark about images dataset to run the code 
-Please create a folder  named 'data'. Inside this folder you creat 4 subfoler for 4 image classes (202 image in each folder)<br/>
-Structure of the datasets : <br/>
----data<br/>
-----------class1<br/>
-----------class2<br/>
-----------class3<br/>
-----------class4<br/>
-If you dont have a set of image data  you con send me an email in the following adress : helmirealmadrid@gmail.com <br/>
-## Architecture of CNN and the parmeters 
-![summary_of_model](https://user-images.githubusercontent.com/40611217/50387867-0a457380-0707-11e9-9ec3-ba00c0ef2585.JPG)
-## Run the code
-python main.py 
+# Keras Deep Learning for Custom Image Classification
+
+This project involves the development of a deep learning model for custom image classification using Convolutional Neural Networks (CNN) with the Keras library.
+
+The model utilizes a sequential CNN architecture implemented using Keras for classifying images into four predefined categories.
+
+## Requirements
+
+To run this project, you will need the following dependencies:
+
+- Python 3.5 or higher
+- Keras
+- Matplotlib
+- Scikit-learn (sklearn)
+- OpenCV
+
+You can install the necessary packages using the following commands:
+
+```bash
+pip install keras matplotlib scikit-learn opencv-python
+
+data/
+  ├── class1/
+  ├── class2/
+  ├── class3/
+  └── class4/
+
+python main.py
