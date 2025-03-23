@@ -1,204 +1,204 @@
-"""
-Convolutional Neural Network for costum image classification
-GHNAMI Helmi
-and
-GHANMI Massaoud
-Update 7 March 2021
-"""
-import sys
 import os
-import cv2
+import torch
+import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.optimizers import SGD, RMSprop, adam
-from keras.layers.convolutional import Conv2D, MaxPooling2D
-from keras.layers.core import Dense, Dropout, Activation, Flatten
-from keras.models import Sequential
-from keras.utils import np_utils, plot_model
-from sklearn.utils import shuffle
+from torch import nn, optim
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
 from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 from sklearn import preprocessing
-K.set_image_dim_ordering('th')
+from torch.utils.tensorboard import SummaryWriter
+from sklearn.metrics import accuracy_score
 
+class CustomImageClassifier(nn.Module):
+    def __init__(self, num_classes=4):
+        super(CustomImageClassifier, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.fc1 = nn.Linear(64 * 32 * 32, 128)
+        self.fc2 = nn.Linear(128, num_classes)
+        self.dropout = nn.Dropout(0.5)
 
-#------------------Preprocessing of input datasets using sklearn-----------------#
-PATH = os.getcwd()
-data_path = PATH + '/data'
-data_dir_list = os.listdir(data_path)
-img_rows = 128
-img_cols = 128
-num_channel = 1
-img_data_list = []
-for dataset in data_dir_list:
-    img_list = os.listdir(data_path + '/' + dataset)
-    print('Loaded the images of dataset-' + '{}\n'.format(dataset))
-    for img in img_list:
-        input_img = cv2.imread(data_path + '/' + dataset + '/' + img)
-        input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2GRAY)
-        input_img_resize = cv2.resize(input_img, (128, 128))
-        img_data_list.append(input_img_resize)
-img_data = np.array(img_data_list)
-img_data = img_data.astype('float32')
-img_data /= 255  # img normalization
-print(img_data.shape)
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 64 * 32 * 32)  # Flatten the tensor
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
 
-if num_channel == 1:
-    if K.image_dim_ordering() == 'th':
-        img_data = np.expand_dims(img_data, axis=1)
-        print(img_data.shape)
-    else:
-        img_data = np.expand_dims(img_data, axis=4)
-        print(img_data.shape)
-
-else:
-    if K.image_dim_ordering() == 'th':
-        img_data = np.rollaxis(img_data, 3, 1)
-        print(img_data.shape)
-
-USE_SKLEARN_PREPROCESSING = False
-if USE_SKLEARN_PREPROCESSING:
-    def image_to_feature_vector(image, size=(128, 128)):
-        # resize the image to a fixed size, then flatten the image into
-        # a list of raw pixel intensities
-        return cv2.resize(image, size).flatten()
-
+def preprocess_data(data_path='data', img_rows=128, img_cols=128, use_sklearn_preprocessing=False):
+    PATH = os.getcwd()
+    data_path = os.path.join(PATH, data_path)
+    data_dir_list = os.listdir(data_path)
     img_data_list = []
-    for dataset in data_dir_list:
-        img_list = os.listdir(data_path + '/' + dataset)
-        print('Loaded the images of dataset-' + '{}\n'.format(dataset))
+    labels = []
+
+    for idx, dataset in enumerate(data_dir_list):
+        img_list = os.listdir(os.path.join(data_path, dataset))
         for img in img_list:
-            input_img = cv2.imread(data_path + '/' + dataset + '/' + img)
+            input_img = cv2.imread(os.path.join(data_path, dataset, img))
             input_img = cv2.cvtColor(input_img, cv2.COLOR_BGR2GRAY)
-            input_img_flatten = image_to_feature_vector(input_img, (128, 128))
-            img_data_list.append(input_img_flatten)
+            input_img_resize = cv2.resize(input_img, (img_rows, img_cols))
+            img_data_list.append(input_img_resize)
+            labels.append(idx)
 
     img_data = np.array(img_data_list)
-    img_data = img_data.astype('float32')
-    print(img_data.shape)
-    img_data_scaled = preprocessing.scale(img_data)
-    print(img_data_scaled.shape)
+    img_data = img_data.astype('float32') / 255.0  # Normalize the images
 
-    print('mean:', np.mean(img_data_scaled))
-    print('std:', np.std(img_data_scaled))
+    # Add channel dimension (N, C, H, W)
+    img_data = np.expand_dims(img_data, axis=1)  # Single channel grayscale images
 
-    print(img_data_scaled.mean(axis=0))
-    print(img_data_scaled.std(axis=0))
+    if use_sklearn_preprocessing:
+        img_data_scaled = preprocessing.scale(img_data.reshape(len(img_data), -1))
+        img_data_scaled = img_data_scaled.reshape(len(img_data), 1, img_rows, img_cols)
+        img_data = img_data_scaled
 
-    if K.image_dim_ordering() == 'th':
-        img_data_scaled = img_data_scaled.reshape(
-            img_data.shape[0], num_channel, img_rows, img_cols)
-        print(img_data_scaled.shape)
+    labels = np.array(labels)
+    return torch.tensor(img_data, dtype=torch.float32), torch.tensor(labels, dtype=torch.long)
 
-    else:
-        img_data_scaled = img_data_scaled.reshape(
-            img_data.shape[0], img_rows, img_cols, num_channel)
-        print(img_data_scaled.shape)
+def prepare_data_loaders(X_data, Y_data, batch_size=16, test_size=0.2):
+    X_data, Y_data = shuffle(X_data, Y_data, random_state=42)
+    X_train, X_test, Y_train, Y_test = train_test_split(X_data, Y_data, test_size=test_size, random_state=42)
 
-    if K.image_dim_ordering() == 'th':
-        img_data_scaled = img_data_scaled.reshape(
-            img_data.shape[0], num_channel, img_rows, img_cols)
-        print(img_data_scaled.shape)
+    train_data = torch.utils.data.TensorDataset(X_train, Y_train)
+    test_data = torch.utils.data.TensorDataset(X_test, Y_test)
 
-    else:
-        img_data_scaled = img_data_scaled.reshape(
-            img_data.shape[0], img_rows, img_cols, num_channel)
-        print(img_data_scaled.shape)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
-if USE_SKLEARN_PREPROCESSING:
-    img_data = img_data_scaled
+    return train_loader, test_loader, X_test, Y_test
 
-#--------------------Split the dataset into train adn test and define the labels ------------------#
-# Define the number of classes
-num_classes = 4
-num_of_samples = img_data.shape[0]
-labels = np.ones((num_of_samples,), dtype='int64')
-labels[0:202] = 0
-labels[202:404] = 1
-labels[404:606] = 2
-labels[606:] = 3
-names = ['cats', 'dogs', 'horses', 'humans']
-# convert class labels to on-hot encoding
-Y = np_utils.to_categorical(labels, num_classes)
-# Shuffle the dataset
-x, y = shuffle(img_data, Y, random_state=2)
-# Split the dataset : test_size = 0.2 ==> 20% of the image dataset are for
-# the test and 80% for the train
-X_train, X_test, y_train, y_test = train_test_split(
-    x, y, test_size=0.2, random_state=2)
+def train_model(model, train_loader, test_loader, num_epoch=50, optimizer=None, criterion=None, callbacks=None):
+    # TensorBoard setup
+    writer = SummaryWriter(log_dir='runs/CustomImageClassifier')
 
-#--------------Architechture of the sequential model---------------------#
-# Defining the model
-input_shape = img_data[0].shape
-model = Sequential()
-model.add(Conv2D(32, (3, 3), border_mode='same', input_shape=input_shape))
-model.add(Activation('relu'))
-model.add(Conv2D(32, (3, 3)))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.5))
-model.add(Conv2D(64, (3, 3)))
-model.add(Activation('relu'))
-#model.add(Conv2D(64, (3, 3)))
-# model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.5))
-model.add(Flatten())
-model.add(Dense(64))
-model.add(Activation('relu'))
-model.add(Dropout(0.5))
-model.add(Dense(num_classes))
-model.add(Activation('softmax'))
+    best_model_wts = model.state_dict()
+    best_acc = 0.0
 
-# Show the model architecture and configuration
-model.summary()
-model.get_config()
-model.layers[0].get_config()
-model.layers[0].input_shape
-model.layers[0].output_shape
-model.layers[0].get_weights()
-np.shape(model.layers[0].get_weights()[0])
-model.layers[0].trainable
+    for epoch in range(num_epoch):
+        model.train()
+        running_loss = 0.0
+        correct = 0
+        total = 0
 
-#------------------Compile and launch traning train then show prediction-----------------#
-num_epoch = 50
-batch_size = 16
-model.compile(loss='categorical_crossentropy',
-              optimizer='rmsprop', metrics=["accuracy"])
-cnn = model.fit(X_train, y_train, batch_size=batch_size, epochs=num_epoch,
-                verbose=1, validation_data=(X_test, y_test))
+        for inputs, labels in train_loader:
+            inputs, labels = inputs.to(device), labels.to(device)
 
-# preduction scores
-scores = model.evaluate(X_test, y_test, verbose=0)
-print("Accuracy: %.2f%%" % (scores[1] * 100))
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-#---------------------save the model-----------------------#
-# serialize model to JSON
-model_json = model.to_json()
-with open("model.json", "w") as json_file:
-    json_file.write(model_json)
-# serialize weights to HDF5
-model.save_weights("model.h5")
-print("Saved model to disk")
+            running_loss += loss.item()
 
-#----------------Plot the training  validation and loss accuracy ---------------#
-plt.figure(0)
-plt.plot(cnn.history['acc'], 'r')
-plt.plot(cnn.history['val_acc'], 'g')
-plt.xticks(np.arange(0, 11, 2.0))
-plt.rcParams['figure.figsize'] = (8, 6)
-plt.xlabel("Num of Epochs")
-plt.ylabel("Accuracy")
-plt.title("Training Accuracy vs Validation Accuracy")
-plt.legend(['train', 'validation'])
-plt.savefig('train_validation_accray.png')
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-plt.figure(1)
-plt.plot(cnn.history['loss'], 'r')
-plt.plot(cnn.history['val_loss'], 'g')
-plt.xticks(np.arange(0, 11, 2.0))
-plt.rcParams['figure.figsize'] = (8, 6)
-plt.xlabel("Num of Epochs")
-plt.ylabel("Loss")
-plt.title("Training Loss vs Validation Loss")
-plt.legend(['train', 'validation'])
-plt.savefig('train_validation_loss.png')
+        epoch_loss = running_loss / len(train_loader)
+        epoch_accuracy = correct / total
+
+        # Validation after each epoch
+        model.eval()
+        val_loss_epoch = 0
+        val_correct = 0
+        val_total = 0
+
+        with torch.no_grad():
+            for inputs, labels in test_loader:
+                inputs, labels = inputs.to(device), labels.to(device)
+
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+
+                val_loss_epoch += loss.item()
+
+                _, predicted = torch.max(outputs, 1)
+                val_total += labels.size(0)
+                val_correct += (predicted == labels).sum().item()
+
+        val_loss_epoch /= len(test_loader)
+        val_accuracy_epoch = val_correct / val_total
+
+        # Save best model
+        if val_accuracy_epoch > best_acc:
+            best_acc = val_accuracy_epoch
+            best_model_wts = model.state_dict()
+
+        # TensorBoard Logging
+        writer.add_scalar('Train/Loss', epoch_loss, epoch)
+        writer.add_scalar('Train/Accuracy', epoch_accuracy, epoch)
+        writer.add_scalar('Validation/Loss', val_loss_epoch, epoch)
+        writer.add_scalar('Validation/Accuracy', val_accuracy_epoch, epoch)
+
+        print(f"Epoch [{epoch + 1}/{num_epoch}], "
+              f"Train Loss: {epoch_loss:.4f}, Train Accuracy: {epoch_accuracy:.4f}, "
+              f"Val Loss: {val_loss_epoch:.4f}, Val Accuracy: {val_accuracy_epoch:.4f}")
+
+    # Load best model weights
+    model.load_state_dict(best_model_wts)
+
+    return model
+
+def make_predictions(model, X_test, Y_test):
+    model.eval()
+    with torch.no_grad():
+        inputs = torch.tensor(X_test).to(device)
+        outputs = model(inputs)
+        _, predicted = torch.max(outputs, 1)
+        accuracy = accuracy_score(Y_test.numpy(), predicted.cpu().numpy())
+        print(f"Test Accuracy: {accuracy:.4f}")
+    return predicted.cpu().numpy()
+
+def save_model(model, model_path='model.pth'):
+    torch.save(model.state_dict(), model_path)
+    print(f"Model saved to {model_path}")
+
+def plot_results(train_loss, train_accuracy, val_loss, val_accuracy):
+    plt.figure(0)
+    plt.plot(train_accuracy, 'r', label='Train Accuracy')
+    plt.plot(val_accuracy, 'g', label='Validation Accuracy')
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.title("Training vs Validation Accuracy")
+    plt.legend()
+    plt.savefig('accuracy_plot.png')
+
+    plt.figure(1)
+    plt.plot(train_loss, 'r', label='Train Loss')
+    plt.plot(val_loss, 'g', label='Validation Loss')
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Training vs Validation Loss")
+    plt.legend()
+    plt.savefig('loss_plot.png')
+
+
+# Usage example
+if __name__ == "__main__":
+    # Hyperparameters and device setup
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Load and preprocess data
+    X_data, Y_data = preprocess_data(data_path='data')
+    train_loader, test_loader, X_test, Y_test = prepare_data_loaders(X_data, Y_data)
+
+    # Initialize model, criterion, optimizer
+    model = CustomImageClassifier(num_classes=4).to(device)
+    optimizer = optim.RMSprop(model.parameters(), lr=0.001)
+    criterion = nn.CrossEntropyLoss()
+
+    # Train model
+    model = train_model(model, train_loader, test_loader, num_epoch=50, optimizer=optimizer, criterion=criterion)
+
+    # Save model
+    save_model(model)
+
+    # Make predictions on X_test
+    predicted_labels = make_predictions(model, X_test, Y_test)
