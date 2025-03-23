@@ -16,7 +16,6 @@ To run this project, you will need the following dependencies:
 
 You can install the necessary packages using the following commands:
 
-```bash
 pip install keras matplotlib scikit-learn opencv-python
 
 data/
@@ -25,4 +24,10 @@ data/
   ├── class3/
   └── class4/
 
-python main.py
+## Architecture of CNN and the parmeters 
+![summary_of_model](https://user-images.githubusercontent.com/40611217/50387867-0a457380-0707-11e9-9ec3-ba00c0ef2585.JPG)
+## Run the code
+python main.py 
+
+if you do not have a dataset and would like to request one, feel free to contact me at helmirealmadrid@gmail.com.
+
